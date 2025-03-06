@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visualizador de Grafos GPU-accelerado Avançado</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- qTip2 CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/qtip2/3.0.3/jquery.qtip.min.css">
+  <style>
+    /* Garante que a página ocupe toda a tela sem overflow */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    .container-fluid {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    /* Seção superior (controles) recolhível */
+    #topSection {
+      flex: 0 0 auto;
+      padding: 1rem;
+      background-color: #f8f9fa;
+      border-bottom: 1px solid #ccc;
+    }
+    /* Container do grafo ocupa o espaço restante */
+    #graphContainer {
+      flex: 1 1 auto;
+      width: 100%;
+      height: calc(100vh - 200px);
+      overflow: hidden;
+      border: 1px solid #ccc;
+    }
+    /* Tooltip custom */
+    #nodeTooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      pointer-events: none;
+      display: none;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+    /* Botão fixo para alternar a exibição dos controles */
+    #toggleTopSection {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 1100;
+    }
+    /* Modal custom */
+    .custom-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      align-items: center;
+      justify-content: center;
+      z-index: 1050;
+    }
+    .custom-modal.active {
+      display: flex;
+    }
+    .custom-modal .modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 0.3rem;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <!-- Botão para alternar a exibição da seção superior -->
+    <button id="toggleTopSection" class="btn btn-primary">Ocultar Controles</button>
+    <!-- Seção superior com controles -->
+    <div id="topSection">
+      <h2 class="text-center">Visualizador de Grafos GPU-accelerado Avançado</h2>
+      <div class="text-center mb-3">
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json,.graphml" class="form-control w-50 mx-auto">
+      </div>
+      <!-- Barra de Progresso Bootstrap -->
+      <div id="progressBarContainer" class="progress mb-3">
+        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;"></div>
+      </div>
+      <div class="text-center mb-3">
+        <button id="reconfigButton" class="btn btn-secondary">Reconfigurar Mapeamento</button>
+      </div>
+      <!-- Modal de mapeamento -->
+      <div id="mappingModal" class="custom-modal">
+        <div class="modal-content">
+          <h3>Mapeamento de Colunas</h3>
+          <form id="mappingForm">
+            <div id="mappingFields"></div>
+            <div class="mt-3">
+              <button type="submit" class="btn btn-primary">Aplicar Mapeamento</button>
+              <button type="button" id="cancelMapping" class="btn btn-secondary">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <!-- Container do grafo -->
+    <div id="graphContainer"></div>
+    <!-- Tooltip -->
+    <div id="nodeTooltip"></div>
+  </div>
+  
+  <!-- Bibliotecas necessárias -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qtip2/3.0.3/jquery.qtip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- ForceGraph3D (GPU via Three.js) -->
+  <script src="https://unpkg.com/3d-force-graph"></script>
+  <!-- three-spritetext para labels -->
+  <script src="https://unpkg.com/three-spritetext@1.9.1/dist/three-spritetext.min.js"></script>
+  <script>
+    // Variáveis globais
+    let uploadedFile = null;
+    let previewHeaders = [];
+    let previewSampleData = [];
+    let fileExtension = '';
+    let fg3d = null;
+    let worker = null;
+    let mouseX = 0, mouseY = 0;
+    
+    // Atualiza a barra de progresso
+    function updateProgressBar(percent) {
+      document.getElementById("progressBar").style.width = (percent * 100) + "%";
+    }
+    
+    // Atualiza a posição do mouse (para o tooltip)
+    document.addEventListener("mousemove", function(e) {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+    
+    // Função para detectar valores complexos
+    function isComplexValue(value) {
+      if (typeof value === "object" && value !== null) return true;
+      if (typeof value === "string") {
+        value = value.trim();
+        if ((value.startsWith("{") && value.endsWith("}")) ||
+            (value.startsWith("[") && value.endsWith("]"))) {
+          try { JSON.parse(value); return true; } catch(e) { return false; }
+        }
+      }
+      return false;
+    }
+    
+    /**
+     * autoSuggestMapping – Analisa os headers e a amostra para calcular métricas
+     * e sugere as colunas ideais para visualizar grupos, cores, tamanhos e links.
+     * O resultado é um objeto em que para cada coluna é definido:
+     * { role: <string>, tooltip: <boolean> }.
+     * Por padrão, se o role sugerido for "nodeId" ou "nodeLabel", o tooltip fica marcado.
+     */
+    function autoSuggestMapping(headers, sampleData) {
+      let suggestions = {};
+      let metrics = {};
+      headers.forEach(header => {
+          let colData = sampleData.map(row => row[header]).filter(v => v !== undefined && v !== null && v !== "");
+          let complex = colData.some(v => isComplexValue(v));
+          let total = colData.length;
+          let unique = new Set(colData).size;
+          let ratio = total ? unique / total : 0;
+          let isNumeric = (total > 0) && colData.every(v => !isComplexValue(v) && !isNaN(parseFloat(v)));
+          metrics[header] = { total, unique, ratio, isNumeric, complex };
+      });
+      // Arestas: "source" e "target"
+      let sourceColumn = headers.find(h => /source/i.test(h) && !metrics[h].complex);
+      let targetColumn = headers.find(h => /target/i.test(h) && !metrics[h].complex);
+      if (sourceColumn && targetColumn) {
+          suggestions[sourceColumn] = { role: "edgeSource", tooltip: false };
+          suggestions[targetColumn] = { role: "edgeTarget", tooltip: false };
+      }
+      // Node ID
+      let candidateId = headers.find(h => /id/i.test(h) && !metrics[h].complex && metrics[h].ratio >= 0.9);
+      if (candidateId) { suggestions[candidateId] = { role: "nodeId", tooltip: true }; }
+      // Node Label
+      let candidateLabel = headers.find(h => /original_title/i.test(h) && !metrics[h].complex);
+      if (candidateLabel) { suggestions[candidateLabel] = { role: "nodeLabel", tooltip: true }; }
+      else {
+          candidateLabel = headers.find(h => /title/i.test(h) && !metrics[h].complex);
+          if (candidateLabel) { suggestions[candidateLabel] = { role: "nodeLabel", tooltip: true }; }
+      }
+      // Node Size
+      let candidateSize = headers.find(h => !metrics[h].complex && metrics[h].isNumeric && metrics[h].unique >= 3 && metrics[h].ratio < 0.9);
+      if (candidateSize) { suggestions[candidateSize] = { role: "nodeSize", tooltip: false }; }
+      // Node Color
+      let candidateColor = headers.find(h => !metrics[h].complex && !metrics[h].isNumeric && metrics[h].ratio >= 0.2 && metrics[h].ratio <= 0.7);
+      if (candidateColor) { suggestions[candidateColor] = { role: "nodeColor", tooltip: false }; }
+      // Group
+      let candidateGroup = headers.find(h => !metrics[h].complex && /status|language|original_language/i.test(h) && metrics[h].ratio < 0.9);
+      if (candidateGroup) { suggestions[candidateGroup] = { role: "group", tooltip: false }; }
+      return suggestions;
+    }
+    
+    // Abre o modal de mapeamento – inclui para cada coluna um select e uma checkbox "Show in tooltip"
+    function openMappingModal() {
+      const modal = document.getElementById("mappingModal");
+      const mappingFields = document.getElementById("mappingFields");
+      mappingFields.innerHTML = "";
+      const suggestedMapping = autoSuggestMapping(previewHeaders, previewSampleData);
+      previewHeaders.forEach(header => {
+          const fieldDiv = document.createElement("div");
+          fieldDiv.className = "mapping-field mb-2";
+          const options = [
+              { value: "", text: "Ignorar" },
+              { value: "nodeId", text: "ID do Node" },
+              { value: "nodeLabel", text: "Label do Node" },
+              { value: "nodeColor", text: "Cor do Node" },
+              { value: "nodeSize", text: "Tamanho do Node" },
+              { value: "edgeSource", text: "Fonte da Edge" },
+              { value: "edgeTarget", text: "Destino da Edge" },
+              { value: "group", text: "Agrupamento" }
+          ];
+          // Cria o select
+          let selectHTML = `<label for="${header}" class="form-label">${header}</label>`;
+          selectHTML += `<select name="role_${header}" id="role_${header}" class="form-select mb-1">`;
+          options.forEach(opt => {
+              let defaultSuggestion = suggestedMapping[header] ? suggestedMapping[header].role : "";
+              const selected = (defaultSuggestion === opt.value) ? "selected" : "";
+              selectHTML += `<option value="${opt.value}" ${selected}>${opt.text}</option>`;
+          });
+          selectHTML += "</select>";
+          // Cria a checkbox para incluir no tooltip
+          let tooltipDefault = (suggestedMapping[header] && (suggestedMapping[header].role === "nodeId" || suggestedMapping[header].role === "nodeLabel"));
+          let checkboxHTML = `<div class="form-check">
+            <input type="checkbox" class="form-check-input" id="tooltip_${header}" name="tooltip_${header}" value="true" ${tooltipDefault ? "checked" : ""}>
+            <label class="form-check-label" for="tooltip_${header}">Show in tooltip</label>
+          </div>`;
+          fieldDiv.innerHTML = selectHTML + checkboxHTML;
+          mappingFields.appendChild(fieldDiv);
+      });
+      modal.classList.add("active");
+    }
+    
+    function closeMappingModal() {
+      document.getElementById("mappingModal").classList.remove("active");
+    }
+    
+    document.getElementById("cancelMapping").addEventListener("click", closeMappingModal);
+    document.getElementById("reconfigButton").addEventListener("click", openMappingModal);
+    
+    // Botão para alternar a exibição da seção superior
+    $("#toggleTopSection").on("click", function() {
+      $("#topSection").slideToggle("fast", function() {
+        if ($("#topSection").is(":visible")) {
+          $("#toggleTopSection").text("Ocultar Controles");
+        } else {
+          $("#toggleTopSection").text("Mostrar Controles");
+        }
+      });
+    });
+    
+    // Leitura do arquivo para extrair preview (headers e amostra)
+    document.getElementById("fileInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      uploadedFile = file;
+      fileExtension = file.name.split(".").pop().toLowerCase();
+      const reader = new FileReader();
+      reader.onload = function(event) {
+          try {
+              if (fileExtension === "xlsx" || fileExtension === "xls") {
+                  const workbook = XLSX.read(event.target.result, { type: "binary" });
+                  const sheetName = workbook.SheetNames[0];
+                  const previewData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, range: 0 });
+                  previewHeaders = previewData[0] || [];
+                  previewSampleData = previewData.slice(1, 11).map(row => {
+                      let obj = {};
+                      previewHeaders.forEach((header, index) => { obj[header] = row[index]; });
+                      return obj;
+                  });
+              } else if (fileExtension === "csv") {
+                  const result = Papa.parse(event.target.result, { preview: 10, header: false });
+                  const previewData = result.data;
+                  previewHeaders = previewData[0] || [];
+                  previewSampleData = previewData.slice(1).map(row => {
+                      let obj = {};
+                      previewHeaders.forEach((header, index) => { obj[header] = row[index]; });
+                      return obj;
+                  });
+              } else if (fileExtension === "json") {
+                  const jsonData = JSON.parse(event.target.result);
+                  if (Array.isArray(jsonData) && jsonData.length > 0) {
+                      previewHeaders = Object.keys(jsonData[0]);
+                      previewSampleData = jsonData.slice(0, 10);
+                  } else {
+                      previewHeaders = [];
+                      previewSampleData = [];
+                  }
+              } else if (fileExtension === "graphml") {
+                  alert("Suporte a GraphML ainda não implementado.");
+                  return;
+              } else {
+                  alert("Formato de arquivo não suportado.");
+                  return;
+              }
+          } catch(err) {
+              alert("Erro ao processar o arquivo (preview): " + err);
+              return;
+          }
+          if (previewHeaders.length === 0) {
+              alert("Nenhum dado encontrado para extrair os headers.");
+              return;
+          }
+          openMappingModal();
+      };
+      if (fileExtension === "xlsx" || fileExtension === "xls") {
+          reader.readAsBinaryString(uploadedFile);
+      } else {
+          reader.readAsText(uploadedFile);
+      }
+    });
+    
+    // Ao submeter o formulário de mapeamento, constrói o objeto de mapeamento e inicia o processamento
+    document.getElementById("mappingForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      let mapping = {};
+      previewHeaders.forEach(header => {
+          const roleVal = document.getElementById("role_" + header).value;
+          const tooltipChecked = document.getElementById("tooltip_" + header).checked;
+          mapping[header] = { role: roleVal, tooltip: tooltipChecked };
+      });
+      closeMappingModal();
+      processFullFile(mapping);
+    });
+    
+    function processFullFile(mapping) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+          let fullData;
+          try {
+              if (fileExtension === "xlsx" || fileExtension === "xls") {
+                  const workbook = XLSX.read(event.target.result, { type: "binary" });
+                  const sheetName = workbook.SheetNames[0];
+                  fullData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: "" });
+              } else if (fileExtension === "csv") {
+                  fullData = Papa.parse(event.target.result, { header: true }).data;
+              } else if (fileExtension === "json") {
+                  fullData = JSON.parse(event.target.result);
+              }
+          } catch(err) {
+              alert("Erro ao processar o arquivo (completo): " + err);
+              return;
+          }
+          // Quando a visualização inicia, recolhe automaticamente a seção superior
+          $("#topSection").slideUp("fast", function() {
+            $("#toggleTopSection").text("Mostrar Controles");
+          });
+          startWorker(mapping, fullData);
+      };
+      if (fileExtension === "xlsx" || fileExtension === "xls") {
+          reader.readAsBinaryString(uploadedFile);
+      } else {
+          reader.readAsText(uploadedFile);
+      }
+    }
+    
+    // Processamento incremental via Web Worker com chunking e normalização para nodeSize,
+    // além de anexar dados extras para o tooltip com base nas checkboxes.
+    function startWorker(mapping, data) {
+      if (worker) { worker.terminate(); }
+      updateProgressBar(0);
+      const workerCode = `
+        self.addEventListener("message", function(e) {
+          const mapping = e.data.mapping;
+          const data = e.data.data;
+          const chunkSize = 500;
+          let nodesMap = {};
+          let edges = [];
+          function textToColor(text) {
+            let hash = 0;
+            for (let i = 0; i < text.length; i++) {
+              hash = text.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            let h = Math.abs(hash) % 360;
+            return "hsl(" + h + ", 70%, 50%)";
+          }
+          function safeId(value, fallback) {
+            return (value === undefined || value === null || value === "") ? fallback : value;
+          }
+          function getBrightness(hex) {
+            hex = hex.replace("#", "");
+            if(hex.length === 3) hex = hex.split("").map(c => c+c).join("");
+            let r = parseInt(hex.substr(0,2),16);
+            let g = parseInt(hex.substr(2,2),16);
+            let b = parseInt(hex.substr(4,2),16);
+            return (r*299 + g*587 + b*114) / 1000;
+          }
+          let nodeIdKey = Object.keys(mapping).find(key => mapping[key].role === "nodeId") ||
+                          Object.keys(mapping).find(key => mapping[key].role === "nodeLabel");
+          let total = data.length;
+          let current = 0;
+          function processNextChunk() {
+            let newNodes = [];
+            let newEdges = [];
+            let start = current;
+            let end = Math.min(current + chunkSize, total);
+            for (let i = start; i < end; i++) {
+              const row = data[i];
+              const nodeId = nodeIdKey ? safeId(row[nodeIdKey], "node_" + i) : ("node_" + i);
+              if (!nodesMap[nodeId]) {
+                const labelKey = Object.keys(mapping).find(key => mapping[key].role === "nodeLabel");
+                const nodeLabel = labelKey ? safeId(row[labelKey], nodeId) : nodeId;
+                const colorKey = Object.keys(mapping).find(key => mapping[key].role === "nodeColor");
+                let rawColor = colorKey ? row[colorKey] : "";
+                let nodeColor = "";
+                if (rawColor && typeof rawColor === "string" && !rawColor.startsWith("#") && !rawColor.startsWith("hsl")) {
+                  nodeColor = textToColor(rawColor);
+                } else {
+                  nodeColor = rawColor || "#337ab7";
+                }
+                let brightness = getBrightness(nodeColor);
+                let textColor = brightness > 186 ? "#000000" : "#FFFFFF";
+                const sizeKey = Object.keys(mapping).find(key => mapping[key].role === "nodeSize");
+                const rawSize = sizeKey ? parseFloat(row[sizeKey]) : NaN;
+                let nodeSize = !isNaN(rawSize) ? rawSize : 20;
+                if (nodeSize > 50) { nodeSize = 50 + (nodeSize - 50) / 10; }
+                else if (nodeSize < 5) { nodeSize = 5; }
+                const groupKey = Object.keys(mapping).find(key => mapping[key].role === "group");
+                const groupValue = groupKey ? row[groupKey] : undefined;
+                // Coleta dados extras para tooltip: para cada coluna com tooltip=true
+                let tooltipData = {};
+                Object.keys(mapping).forEach(key => {
+                  if (mapping[key].tooltip && row[key] !== undefined) {
+                    tooltipData[key] = row[key];
+                  }
+                });
+                let newNode = { id: nodeId, label: nodeLabel, color: nodeColor, size: nodeSize, group: groupValue, textColor: textColor, tooltipData: tooltipData };
+                nodesMap[nodeId] = newNode;
+                newNodes.push(newNode);
+              }
+              const sourceKey = Object.keys(mapping).find(key => mapping[key].role === "edgeSource");
+              const targetKey = Object.keys(mapping).find(key => mapping[key].role === "edgeTarget");
+              if (sourceKey && targetKey) {
+                const source = row[sourceKey];
+                const target = row[targetKey];
+                if (source && target) {
+                  if (!nodesMap[source]) {
+                    let newNode = { id: source, label: source, color: "#337ab7", size: 20, textColor: "#FFFFFF", tooltipData: {} };
+                    nodesMap[source] = newNode;
+                    newNodes.push(newNode);
+                  }
+                  if (!nodesMap[target]) {
+                    let newNode = { id: target, label: target, color: "#337ab7", size: 20, textColor: "#FFFFFF", tooltipData: {} };
+                    nodesMap[target] = newNode;
+                    newNodes.push(newNode);
+                  }
+                  let edge = { source: source, target: target };
+                  newEdges.push(edge);
+                  edges.push(edge);
+                }
+              }
+            }
+            current = end;
+            self.postMessage({ type: "progress", nodes: newNodes, edges: newEdges, progress: current / total });
+            if (current < total) { setTimeout(processNextChunk, 0); }
+            else { self.postMessage({ type: "complete" }); }
+          }
+          processNextChunk();
+        });
+      `;
+      const blob = new Blob([workerCode], { type: "application/javascript" });
+      worker = new Worker(URL.createObjectURL(blob));
+      worker.addEventListener("message", function(e) {
+          if (e.data.type === "progress") {
+              if (!fg3d) {
+                  fg3d = ForceGraph3D()(document.getElementById("graphContainer"))
+                    .graphData({ nodes: [], links: [] })
+                    .nodeAutoColorBy("group")
+                    .linkDirectionalArrowLength(3)
+                    .linkDirectionalArrowRelPos(1)
+                    .linkCurvature(0.25)
+                    .nodeThreeObjectExtend(true)
+                    .nodeThreeObject(node => {
+                        const cam = fg3d.camera();
+                        const dx = node.x - cam.position.x;
+                        const dy = node.y - cam.position.y;
+                        const dz = node.z - cam.position.z;
+                        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                        const threshold = 150;
+                        if (dist < threshold) {
+                          let sprite = new SpriteText(node.label, {
+                            color: node.textColor,
+                            fontSize: 4,
+                            backgroundColor: "rgba(0,0,0,0.5)"
+                          });
+                          sprite.position.set(0, 0, 0);
+                          node.__sprite = sprite;
+                          return sprite;
+                        }
+                        return null;
+                    })
+                    .onNodeHover(node => {
+                        const tooltip = document.getElementById("nodeTooltip");
+                        if (node) {
+                          if (node.__sprite) { node.__sprite.visible = false; }
+                          // Constrói o conteúdo do tooltip incluindo os dados extras
+                          let extra = "";
+                          if (node.tooltipData) {
+                            for (let key in node.tooltipData) {
+                              extra += `<br><strong>${key}:</strong> ${node.tooltipData[key]}`;
+                            }
+                          }
+                          tooltip.style.left = (mouseX + 20) + "px";
+                          tooltip.style.top = (mouseY + 20) + "px";
+                          tooltip.innerHTML = `<strong>${node.label}</strong><br>ID: ${node.id}<br>Group: ${node.group || "N/A"}<br>Size: ${node.size}${extra}`;
+                          tooltip.style.display = "block";
+                        } else {
+                          if (fg3d && fg3d.graphData() && fg3d.graphData().nodes) {
+                              fg3d.graphData().nodes.forEach(n => { if (n.__sprite) n.__sprite.visible = true; });
+                          }
+                          tooltip.style.display = "none";
+                        }
+                    })
+                    .onBackgroundClick(() => {
+                        document.getElementById("nodeTooltip").style.display = "none";
+                        if (fg3d && fg3d.graphData() && fg3d.graphData().nodes) {
+                            fg3d.graphData().nodes.forEach(n => { if (n.__sprite) n.__sprite.visible = true; });
+                        }
+                    });
+              }
+              let currentData = fg3d.graphData();
+              currentData.nodes = currentData.nodes.concat(e.data.nodes);
+              currentData.links = currentData.links.concat(e.data.edges);
+              fg3d.graphData(currentData);
+              updateProgressBar(e.data.progress);
+          } else if (e.data.type === "complete") {
+              updateProgressBar(1);
+          }
+      });
+      worker.addEventListener("error", function(err) {
+          alert("Erro no processamento: " + err.message);
+      });
+      worker.postMessage({ mapping: mapping, data: data });
+    }
+  </script>
+</body>
+</html>
