@@ -1,0 +1,11 @@
+source,target,weight,type,category
+Node1,Node2,5,Direct,A
+Node1,Node3,3,Direct,A
+Node2,Node4,2,Indirect,B
+Node3,Node4,7,Direct,A
+Node2,Node5,4,Indirect,B
+Node4,Node6,2,Direct,C
+Node5,Node6,3,Indirect,C
+Node6,Node7,1,Direct,D
+Node7,Node8,5,Direct,D
+Node8,Node1,2,Indirect,A
