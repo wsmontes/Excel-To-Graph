@@ -3,11 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Visualizador de Grafos GPU-accelerado Avançado</title>
-  <!-- Bootstrap 5 CSS -->
+  <title>Graph Vision Pro - Visualizador Avançado de Grafos</title>
+  <!-- Modern dependencies -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- qTip2 CSS -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/qtip2/3.0.3/jquery.qtip.min.css">
+  <!-- qTip2 removido para nova abordagem do tooltip -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js">
+  <link href="https://unpkg.com/3d-force-graph/dist/3d-force-graph.css" rel="stylesheet">
   <style>
     /* Garante que a página ocupe toda a tela sem overflow */
     html, body {
@@ -81,48 +83,142 @@
       overflow-y: auto;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
+    /* NEW: Sidebar navigation & dark mode support */
+    body {
+      overflow: hidden;
+      transition: background-color 0.3s;
+    }
+    .app-container {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 280px;
+      background: var(--light-bg);
+      overflow-y: auto;
+      border-right: 1px solid #ccc;
+      transition: background-color 0.3s;
+    }
+    [data-theme="dark"] .sidebar {
+      background: #343a40;
+      color: #f8f9fa;
+    }
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .toolbar {
+      padding: 0.5rem 1rem;
+      background: rgba(255,255,255,0.9);
+      border-bottom: 1px solid #ccc;
+    }
+    [data-theme="dark"] .toolbar {
+      background: rgba(33,37,41,0.9);
+      border-bottom: 1px solid #555;
+    }
+    /* NEW: Responsive search panel */
+    .search-panel {
+      position: absolute;
+      top: 60px;
+      right: 20px;
+      width: 300px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      display: none;
+      z-index: 1100;
+    }
+    [data-theme="dark"] .search-panel { background: #212529; color: #f8f9fa; }
+    /* NEW: Export & analytics panel in sidebar */
+    .sidebar .panel {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #ccc;
+    }
   </style>
 </head>
-<body>
-  <div class="container-fluid">
-    <!-- Botão para alternar a exibição da seção superior -->
-    <button id="toggleTopSection" class="btn btn-primary">Ocultar Controles</button>
-    <!-- Seção superior com controles -->
-    <div id="topSection">
-      <h2 class="text-center">Visualizador de Grafos GPU-accelerado Avançado</h2>
-      <div class="text-center mb-3">
-        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json,.graphml" class="form-control w-50 mx-auto">
-      </div>
-      <!-- Barra de Progresso Bootstrap -->
-      <div id="progressBarContainer" class="progress mb-3">
-        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;"></div>
-      </div>
-      <div class="text-center mb-3">
-        <button id="reconfigButton" class="btn btn-secondary">Reconfigurar Mapeamento</button>
-      </div>
-      <!-- Modal de mapeamento -->
-      <div id="mappingModal" class="custom-modal">
-        <div class="modal-content">
-          <h3>Mapeamento de Colunas</h3>
-          <form id="mappingForm">
-            <div id="mappingFields"></div>
-            <div class="mt-3">
-              <button type="submit" class="btn btn-primary">Aplicar Mapeamento</button>
-              <button type="button" id="cancelMapping" class="btn btn-secondary">Cancelar</button>
-            </div>
-          </form>
+<body data-theme="light">
+  <div class="app-container">
+    <!-- NEW: Sidebar Navigation -->
+    <div class="sidebar">
+      <!-- Toggle for dark mode -->
+      <div class="p-3 border-bottom">
+        <h5>Graph Vision Pro</h5>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="themeSwitch">
+          <label class="form-check-label" for="themeSwitch">Modo Escuro</label>
         </div>
       </div>
+      <!-- NEW: Panels for Import, Filtros, Analytics e Export -->
+      <div class="panel">
+        <h6>Importar Dados</h6>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json,.graphml" class="form-control">
+        <div id="progressBarContainer" class="progress my-2">
+          <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
+        </div>
+        <button id="reconfigButton" class="btn btn-secondary w-100">Reconfigurar Mapeamento</button>
+      </div>
+      <div class="panel">
+        <h6>Filtros</h6>
+        <input type="text" id="filterInput" class="form-control" placeholder="Buscar grupo...">
+        <button id="applyFilters" class="btn btn-primary w-100 mt-2">Aplicar Filtros</button>
+      </div>
+      <div class="panel">
+        <h6>Análise</h6>
+        <button id="findCentralNodes" class="btn btn-outline-secondary w-100 mb-1">Nós Centrais</button>
+        <button id="findClusters" class="btn btn-outline-secondary w-100">Detectar Agrupamentos</button>
+      </div>
+      <div class="panel">
+        <h6>Exportar</h6>
+        <button id="exportPNG" class="btn btn-outline-primary w-100 mb-1">Exportar PNG</button>
+        <button id="exportJSON" class="btn btn-outline-primary w-100 mb-1">Exportar JSON</button>
+        <button id="exportGraphML" class="btn btn-outline-primary w-100">Exportar GraphML</button>
+      </div>
     </div>
-    <!-- Container do grafo -->
-    <div id="graphContainer"></div>
-    <!-- Tooltip -->
-    <div id="nodeTooltip"></div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- NEW: Toolbar with search & graph control buttons -->
+      <div class="toolbar d-flex justify-content-between align-items-center">
+        <div>
+          <button id="resetViewBtn" class="btn btn-primary">Reset Visualização</button>
+        </div>
+        <div>
+          <button id="showSearch" class="btn btn-outline-secondary me-2">Buscar</button>
+          <button id="toggleMinimap" class="btn btn-outline-secondary">Mini-mapa</button>
+        </div>
+      </div>
+      <!-- Graph container remains -->
+      <div id="graphContainer" style="flex:1; border:1px solid #ccc;"></div>
+      <!-- NEW: Search Panel -->
+      <div id="searchPanel" class="search-panel">
+        <input type="text" id="searchInput" class="form-control mb-2" placeholder="Buscar nó...">
+        <div id="searchResults"></div>
+      </div>
+    </div>
   </div>
+  
+  <!-- MODAL: Mapping Modal (unchanged structure) -->
+  <div id="mappingModal" class="custom-modal">
+    <div class="modal-content">
+      <h3>Mapeamento de Colunas</h3>
+      <form id="mappingForm">
+        <div id="mappingFields"></div>
+        <div class="mt-3">
+          <button type="submit" class="btn btn-primary">Aplicar Mapeamento</button>
+          <button type="button" id="cancelMapping" class="btn btn-secondary">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Tooltip (improved styling and content handling in script) -->
+  <div id="nodeTooltip"></div>
   
   <!-- Bibliotecas necessárias -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qtip2/3.0.3/jquery.qtip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <!-- ForceGraph3D (GPU via Three.js) -->
@@ -552,6 +648,48 @@
       });
       worker.postMessage({ mapping: mapping, data: data });
     }
+    
+    // NEW: Global state and element caches for new controls
+    const themeSwitch = document.getElementById("themeSwitch");
+    const searchPanel = document.getElementById("searchPanel");
+    const showSearch = document.getElementById("showSearch");
+    const searchInput = document.getElementById("searchInput");
+    // Toggle dark mode
+    themeSwitch.addEventListener("change", () => {
+      document.body.setAttribute("data-theme", themeSwitch.checked ? "dark" : "light");
+    });
+    // Toggle search panel
+    showSearch.addEventListener("click", () => {
+      searchPanel.style.display = searchPanel.style.display === "block" ? "none" : "block";
+      if (searchPanel.style.display === "block") {
+        searchInput.focus();
+      }
+    });
+    // NEW: Placeholder for filter and export functionality
+    document.getElementById("applyFilters").addEventListener("click", () => {
+      // ...apply filter logic...
+      alert("Filtros aplicados (lógica a implementar)");
+    });
+    document.getElementById("findCentralNodes").addEventListener("click", () => {
+      // ...centrality analysis logic...
+      alert("Nó central identificado (lógica a implementar)");
+    });
+    document.getElementById("findClusters").addEventListener("click", () => {
+      // ...community detection logic...
+      alert("Agrupamentos detectados (lógica a implementar)");
+    });
+    document.getElementById("exportPNG").addEventListener("click", () => {
+      // ...export PNG logic...
+      alert("Exportar PNG (lógica a implementar)");
+    });
+    document.getElementById("exportJSON").addEventListener("click", () => {
+      // ...export JSON logic...
+      alert("Exportar JSON (lógica a implementar)");
+    });
+    document.getElementById("exportGraphML").addEventListener("click", () => {
+      // ...export GraphML logic...
+      alert("Exportar GraphML (lógica a implementar)");
+    });
   </script>
 </body>
 </html>
