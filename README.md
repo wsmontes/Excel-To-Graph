@@ -2,6 +2,10 @@
 
 Um visualizador avançado de grafos para dados em Excel, CSV e JSON.
 
+## Demo Online
+
+Acesse a versão ao vivo em: [https://wsmontes.github.io/Excel-To-Graph/GraphV5.html](https://wsmontes.github.io/Excel-To-Graph/GraphV5.html)
+
 ## Funcionalidades
 
 - Suporte para dados em Excel (.xlsx, .xls), CSV e JSON
@@ -25,6 +29,9 @@ Um visualizador avançado de grafos para dados em Excel, CSV e JSON.
 Para executar este projeto localmente, você pode:
 
 1. Clonar o repositório
+   ```
+   git clone https://github.com/wsmontes/Excel-To-Graph.git
+   ```
 2. Abrir o arquivo `GraphV5.html` em um navegador moderno
 3. Ou usar um servidor local como o Live Server do VS Code
 
