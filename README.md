@@ -1,48 +1,39 @@
 # Graph Vision Pro
 
-Um visualizador avançado de grafos para dados em Excel, CSV e JSON.
+An advanced graph visualizer for Excel, CSV and JSON data.
 
-## Demo Online
+## Online Demo
 
-Acesse a versão ao vivo em: [https://wsmontes.github.io/Excel-To-Graph/GraphV5.html](https://wsmontes.github.io/Excel-To-Graph/GraphV5.html)
+Access the live version at: [https://wsmontes.github.io/Excel-To-Graph/GraphV5.html](https://wsmontes.github.io/Excel-To-Graph/GraphV5.html)
 
-## Funcionalidades
+## Features
 
-- Suporte para dados em Excel (.xlsx, .xls), CSV e JSON
-- Visualização interativa de grafos em 3D
-- Mapeamento configurável de colunas para propriedades do grafo
-- Filtros e busca avançada
-- Análise de centralidade e detecção de comunidades
-- Exportação de grafos em vários formatos
+- Support for Excel files (.xlsx, .xls), CSV and JSON
+- Interactive 3D graph visualization
+- Configurable column mapping for graph properties
+- Advanced filters and search
+- Centrality analysis and community detection
+- Graph export in multiple formats
 
-## Como implantar no GitHub Pages
+## Local Development
 
-1. Faça um fork deste repositório para sua conta GitHub
-2. Vá para a seção "Settings" do seu repositório
-3. Role até a seção "GitHub Pages"
-4. Na fonte "Source", selecione a branch principal (main ou master)
-5. Clique em "Save"
-6. Após alguns instantes, seu site estará disponível em https://seu-usuario.github.io/Excel-To-Graph/
+To run this project locally, you can:
 
-## Desenvolvimento Local
-
-Para executar este projeto localmente, você pode:
-
-1. Clonar o repositório
+1. Clone the repository
    ```
    git clone https://github.com/wsmontes/Excel-To-Graph.git
    ```
-2. Abrir o arquivo `GraphV5.html` em um navegador moderno
-3. Ou usar um servidor local como o Live Server do VS Code
+2. Open the `GraphV5.html` file in a modern browser
+3. Or use a local server like VS Code's Live Server
 
-## Tecnologias Utilizadas
+## Technologies Used
 
 - 3D Force Graph
 - Bootstrap 5
-- XLSX.js para processamento de planilhas
-- PapaParse para arquivos CSV
-- Three.js para renderização 3D
+- XLSX.js for spreadsheet processing
+- PapaParse for CSV files
+- Three.js for 3D rendering
 
-## Licença
+## License
 
 MIT

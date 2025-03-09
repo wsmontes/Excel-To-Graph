@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Graph Vision Pro - Visualizador Avançado de Grafos</title>
+  <title>Graph Vision Pro - Advanced Graph Visualizer</title>
   <!-- Modern dependencies with proper integrity hashes for security -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
   <!-- Fix incorrect script links as stylesheets -->
@@ -15,13 +15,13 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
   <meta name="theme-color" content="#343a40">
   <!-- Add Open Graph meta tags for better sharing -->
-  <meta property="og:title" content="Graph Vision Pro - Visualizador Avançado de Grafos">
-  <meta property="og:description" content="Ferramenta avançada para visualização interativa de grafos baseados em Excel, CSV e JSON.">
+  <meta property="og:title" content="Graph Vision Pro - Advanced Graph Visualizer">
+  <meta property="og:description" content="Advanced interactive visualization tool for graphs based on Excel, CSV and JSON data.">
   <meta property="og:url" content="https://wsmontes.github.io/Excel-To-Graph/GraphV5.html">
   <meta property="og:type" content="website">
 
   <style>
-    /* Garante que a página ocupe toda a tela sem overflow */
+    /* Ensures the page occupies the entire screen without overflow */
     html, body {
       height: 100%;
       margin: 0;
@@ -34,14 +34,14 @@
       flex-direction: column;
       overflow: hidden;
     }
-    /* Seção superior (controles) recolhível */
+    /* Collapsible top section (controls) */
     #topSection {
       flex: 0 0 auto;
       padding: 1rem;
       background-color: #f8f9fa;
       border-bottom: 1px solid #ccc;
     }
-    /* Container do grafo ocupa o espaço restante */
+    /* Graph container occupies the remaining space */
     #graphContainer {
       flex: 1 1 auto;
       width: 100%;
@@ -49,7 +49,7 @@
       overflow: hidden;
       border: 1px solid #ccc;
     }
-    /* Tooltip custom */
+    /* Custom tooltip */
     #nodeTooltip {
       position: absolute;
       background: rgba(0,0,0,0.8);
@@ -62,14 +62,14 @@
       z-index: 9999;
       white-space: nowrap;
     }
-    /* Botão fixo para alternar a exibição dos controles */
+    /* Fixed button to toggle the display of controls */
     #toggleTopSection {
       position: fixed;
       top: 10px;
       right: 10px;
       z-index: 1100;
     }
-    /* Modal custom */
+    /* Custom modal */
     .custom-modal {
       display: none;
       position: fixed;
@@ -161,40 +161,40 @@
   <style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
 
   <div class="app-container">
-    <!-- NEW: Sidebar Navigation -->
+    <!-- Sidebar Navigation -->
     <div class="sidebar">
       <!-- Toggle for dark mode -->
       <div class="p-3 border-bottom">
         <h5>Graph Vision Pro</h5>
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="themeSwitch">
-          <label class="form-check-label" for="themeSwitch">Modo Escuro</label>
+          <label class="form-check-label" for="themeSwitch">Dark Mode</label>
         </div>
       </div>
-      <!-- NEW: Panels for Import, Filtros, Analytics e Export -->
+      <!-- Panels for Import, Filters, Analytics and Export -->
       <div class="panel">
-        <h6>Importar Dados</h6>
+        <h6>Import Data</h6>
         <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.json,.graphml" class="form-control">
         <div id="progressBarContainer" class="progress my-2">
           <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
         </div>
-        <button id="reconfigButton" class="btn btn-secondary w-100">Reconfigurar Mapeamento</button>
+        <button id="reconfigButton" class="btn btn-secondary w-100">Reconfigure Mapping</button>
       </div>
       <div class="panel">
-        <h6>Filtros</h6>
-        <input type="text" id="filterInput" class="form-control" placeholder="Buscar grupo...">
-        <button id="applyFilters" class="btn btn-primary w-100 mt-2">Aplicar Filtros</button>
+        <h6>Filters</h6>
+        <input type="text" id="filterInput" class="form-control" placeholder="Search by group...">
+        <button id="applyFilters" class="btn btn-primary w-100 mt-2">Apply Filters</button>
       </div>
       <div class="panel">
-        <h6>Análise</h6>
-        <button id="findCentralNodes" class="btn btn-outline-secondary w-100 mb-1">Nós Centrais</button>
-        <button id="findClusters" class="btn btn-outline-secondary w-100">Detectar Agrupamentos</button>
+        <h6>Analysis</h6>
+        <button id="findCentralNodes" class="btn btn-outline-secondary w-100 mb-1">Central Nodes</button>
+        <button id="findClusters" class="btn btn-outline-secondary w-100">Detect Communities</button>
       </div>
       <div class="panel">
-        <h6>Exportar</h6>
-        <button id="exportPNG" class="btn btn-outline-primary w-100 mb-1">Exportar PNG</button>
-        <button id="exportJSON" class="btn btn-outline-primary w-100 mb-1">Exportar JSON</button>
-        <button id="exportGraphML" class="btn btn-outline-primary w-100">Exportar GraphML</button>
+        <h6>Export</h6>
+        <button id="exportPNG" class="btn btn-outline-primary w-100 mb-1">Export PNG</button>
+        <button id="exportJSON" class="btn btn-outline-primary w-100 mb-1">Export JSON</button>
+        <button id="exportGraphML" class="btn btn-outline-primary w-100">Export GraphML</button>
       </div>
       <div class="panel text-center mt-3">
         <small class="text-muted">Graph Vision Pro v1.0<br>
@@ -205,41 +205,41 @@
     
     <!-- Main Content -->
     <div class="main-content">
-      <!-- NEW: Toolbar with search & graph control buttons -->
+      <!-- Toolbar with search & graph control buttons -->
       <div class="toolbar d-flex justify-content-between align-items-center">
         <div>
-          <button id="resetViewBtn" class="btn btn-primary">Reset Visualização</button>
+          <button id="resetViewBtn" class="btn btn-primary">Reset View</button>
         </div>
         <div>
-          <button id="showSearch" class="btn btn-outline-secondary me-2">Buscar</button>
-          <button id="toggleMinimap" class="btn btn-outline-secondary">Mini-mapa</button>
+          <button id="showSearch" class="btn btn-outline-secondary me-2">Search</button>
+          <button id="toggleMinimap" class="btn btn-outline-secondary">Mini-map</button>
         </div>
       </div>
       <!-- Graph container remains -->
       <div id="graphContainer" style="flex:1; border:1px solid #ccc;"></div>
-      <!-- NEW: Search Panel -->
+      <!-- Search Panel -->
       <div id="searchPanel" class="search-panel">
-        <input type="text" id="searchInput" class="form-control mb-2" placeholder="Buscar nó...">
+        <input type="text" id="searchInput" class="form-control mb-2" placeholder="Search for node...">
         <div id="searchResults"></div>
       </div>
     </div>
   </div>
   
-  <!-- MODAL: Mapping Modal (unchanged structure) -->
+  <!-- Mapping Modal -->
   <div id="mappingModal" class="custom-modal">
     <div class="modal-content">
-      <h3>Mapeamento de Colunas</h3>
+      <h3>Column Mapping</h3>
       <form id="mappingForm">
         <div id="mappingFields"></div>
         <div class="mt-3">
-          <button type="submit" class="btn btn-primary">Aplicar Mapeamento</button>
-          <button type="button" id="cancelMapping" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Apply Mapping</button>
+          <button type="button" id="cancelMapping" class="btn btn-secondary">Cancel</button>
         </div>
       </form>
     </div>
   </div>
   
-  <!-- Tooltip (improved styling and content handling in script) -->
+  <!-- Tooltip -->
   <div id="nodeTooltip"></div>
   
   <!-- Load scripts with integrity checks where available -->
@@ -248,7 +248,7 @@
   <script src="https://unpkg.com/3d-force-graph"></script>
   <script src="https://unpkg.com/three-spritetext@1.9.1/dist/three-spritetext.min.js"></script>
   <script>
-    // Variáveis globais
+    // Global variables
     let uploadedFile = null;
     let previewHeaders = [];
     let previewSampleData = [];
@@ -257,18 +257,18 @@
     let worker = null;
     let mouseX = 0, mouseY = 0;
     
-    // Atualiza a barra de progresso
+    // Update progress bar
     function updateProgressBar(percent) {
       document.getElementById("progressBar").style.width = (percent * 100) + "%";
     }
     
-    // Atualiza a posição do mouse (para o tooltip)
+    // Update mouse position (for tooltip)
     document.addEventListener("mousemove", function(e) {
       mouseX = e.clientX;
       mouseY = e.clientY;
     });
     
-    // Função para detectar valores complexos
+    // Function to detect complex values
     function isComplexValue(value) {
       if (typeof value === "object" && value !== null) return true;
       if (typeof value === "string") {
@@ -282,11 +282,11 @@
     }
     
     /**
-     * autoSuggestMapping – Analisa os headers e a amostra para calcular métricas
-     * e sugere as colunas ideais para visualizar grupos, cores, tamanhos e links.
-     * O resultado é um objeto em que para cada coluna é definido:
+     * autoSuggestMapping - Analyzes headers and sample data to calculate metrics
+     * and suggests ideal columns for visualizing groups, colors, sizes and links.
+     * The result is an object where for each column is defined:
      * { role: <string>, tooltip: <boolean> }.
-     * Por padrão, se o role sugerido for "nodeId" ou "nodeLabel", o tooltip fica marcado.
+     * By default, if the suggested role is "nodeId" or "nodeLabel", tooltip is checked.
      */
     function autoSuggestMapping(headers, sampleData) {
       let suggestions = {};
@@ -300,7 +300,7 @@
           let isNumeric = (total > 0) && colData.every(v => !isComplexValue(v) && !isNaN(parseFloat(v)));
           metrics[header] = { total, unique, ratio, isNumeric, complex };
       });
-      // Arestas: "source" e "target"
+      // Edges: "source" and "target"
       let sourceColumn = headers.find(h => /source/i.test(h) && !metrics[h].complex);
       let targetColumn = headers.find(h => /target/i.test(h) && !metrics[h].complex);
       if (sourceColumn && targetColumn) {
@@ -329,7 +329,7 @@
       return suggestions;
     }
     
-    // Abre o modal de mapeamento – inclui para cada coluna um select e uma checkbox "Show in tooltip"
+    // Opens the mapping modal - includes a select and a checkbox "Show in tooltip" for each column
     function openMappingModal() {
       const modal = document.getElementById("mappingModal");
       const mappingFields = document.getElementById("mappingFields");
@@ -339,16 +339,16 @@
           const fieldDiv = document.createElement("div");
           fieldDiv.className = "mapping-field mb-2";
           const options = [
-              { value: "", text: "Ignorar" },
-              { value: "nodeId", text: "ID do Node" },
-              { value: "nodeLabel", text: "Label do Node" },
-              { value: "nodeColor", text: "Cor do Node" },
-              { value: "nodeSize", text: "Tamanho do Node" },
-              { value: "edgeSource", text: "Fonte da Edge" },
-              { value: "edgeTarget", text: "Destino da Edge" },
-              { value: "group", text: "Agrupamento" }
+              { value: "", text: "Ignore" },
+              { value: "nodeId", text: "Node ID" },
+              { value: "nodeLabel", text: "Node Label" },
+              { value: "nodeColor", text: "Node Color" },
+              { value: "nodeSize", text: "Node Size" },
+              { value: "edgeSource", text: "Edge Source" },
+              { value: "edgeTarget", text: "Edge Target" },
+              { value: "group", text: "Grouping" }
           ];
-          // Cria o select
+          // Creates the select
           let selectHTML = `<label for="${header}" class="form-label">${header}</label>`;
           selectHTML += `<select name="role_${header}" id="role_${header}" class="form-select mb-1">`;
           options.forEach(opt => {
@@ -357,7 +357,7 @@
               selectHTML += `<option value="${opt.value}" ${selected}>${opt.text}</option>`;
           });
           selectHTML += "</select>";
-          // Cria a checkbox para incluir no tooltip
+          // Creates the checkbox to include in tooltip
           let tooltipDefault = (suggestedMapping[header] && (suggestedMapping[header].role === "nodeId" || suggestedMapping[header].role === "nodeLabel"));
           let checkboxHTML = `<div class="form-check">
             <input type="checkbox" class="form-check-input" id="tooltip_${header}" name="tooltip_${header}" value="true" ${tooltipDefault ? "checked" : ""}>
@@ -376,18 +376,18 @@
     document.getElementById("cancelMapping").addEventListener("click", closeMappingModal);
     document.getElementById("reconfigButton").addEventListener("click", openMappingModal);
     
-    // Botão para alternar a exibição da seção superior
+    // Button to toggle display of the top section
     $("#toggleTopSection").on("click", function() {
       $("#topSection").slideToggle("fast", function() {
         if ($("#topSection").is(":visible")) {
-          $("#toggleTopSection").text("Ocultar Controles");
+          $("#toggleTopSection").text("Hide Controls");
         } else {
-          $("#toggleTopSection").text("Mostrar Controles");
+          $("#toggleTopSection").text("Show Controls");
         }
       });
     });
     
-    // Leitura do arquivo para extrair preview (headers e amostra)
+    // File reading to extract preview (headers and sample)
     document.getElementById("fileInput").addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -425,18 +425,18 @@
                       previewSampleData = [];
                   }
               } else if (fileExtension === "graphml") {
-                  alert("Suporte a GraphML ainda não implementado.");
+                  alert("GraphML support not yet implemented.");
                   return;
               } else {
-                  alert("Formato de arquivo não suportado.");
+                  alert("Unsupported file format.");
                   return;
               }
           } catch(err) {
-              alert("Erro ao processar o arquivo (preview): " + err);
+              alert("Error processing file (preview): " + err);
               return;
           }
           if (previewHeaders.length === 0) {
-              alert("Nenhum dado encontrado para extrair os headers.");
+              alert("No data found to extract headers.");
               return;
           }
           openMappingModal();
@@ -448,7 +448,7 @@
       }
     });
     
-    // Ao submeter o formulário de mapeamento, constrói o objeto de mapeamento e inicia o processamento
+    // On form submission, constructs the mapping object and starts processing
     document.getElementById("mappingForm").addEventListener("submit", function(e) {
       e.preventDefault();
       let mapping = {};
@@ -476,12 +476,12 @@
                   fullData = JSON.parse(event.target.result);
               }
           } catch(err) {
-              alert("Erro ao processar o arquivo (completo): " + err);
+              alert("Error processing file (complete): " + err);
               return;
           }
-          // Quando a visualização inicia, recolhe automaticamente a seção superior
+          // When visualization starts, automatically collapses the top section
           $("#topSection").slideUp("fast", function() {
-            $("#toggleTopSection").text("Mostrar Controles");
+            $("#toggleTopSection").text("Show Controls");
           });
           startWorker(mapping, fullData);
       };
@@ -492,8 +492,8 @@
       }
     }
     
-    // Processamento incremental via Web Worker com chunking e normalização para nodeSize,
-    // além de anexar dados extras para o tooltip com base nas checkboxes.
+    // Incremental processing via Web Worker with chunking and normalization for nodeSize,
+    // plus attaching extra data for tooltip based on checkboxes.
     function startWorker(mapping, data) {
       if (worker) { worker.terminate(); }
       updateProgressBar(0);
@@ -555,7 +555,7 @@
                 else if (nodeSize < 5) { nodeSize = 5; }
                 const groupKey = Object.keys(mapping).find(key => mapping[key].role === "group");
                 const groupValue = groupKey ? row[groupKey] : undefined;
-                // Coleta dados extras para tooltip: para cada coluna com tooltip=true
+                // Collects extra data for tooltip: for each column with tooltip=true
                 let tooltipData = {};
                 Object.keys(mapping).forEach(key => {
                   if (mapping[key].tooltip && row[key] !== undefined) {
@@ -631,7 +631,7 @@
                         const tooltip = document.getElementById("nodeTooltip");
                         if (node) {
                           if (node.__sprite) { node.__sprite.visible = false; }
-                          // Constrói o conteúdo do tooltip incluindo os dados extras
+                          // Constructs the tooltip content including the extra data
                           let extra = "";
                           if (node.tooltipData) {
                             for (let key in node.tooltipData) {
@@ -666,20 +666,22 @@
           }
       });
       worker.addEventListener("error", function(err) {
-          alert("Erro no processamento: " + err.message);
+          alert("Error in processing: " + err.message);
       });
       worker.postMessage({ mapping: mapping, data: data });
     }
     
-    // NEW: Global state and element caches for new controls
+    // Global state and element caches for controls
     const themeSwitch = document.getElementById("themeSwitch");
     const searchPanel = document.getElementById("searchPanel");
     const showSearch = document.getElementById("showSearch");
     const searchInput = document.getElementById("searchInput");
+    
     // Toggle dark mode
     themeSwitch.addEventListener("change", () => {
       document.body.setAttribute("data-theme", themeSwitch.checked ? "dark" : "light");
     });
+    
     // Toggle search panel
     showSearch.addEventListener("click", () => {
       searchPanel.style.display = searchPanel.style.display === "block" ? "none" : "block";
@@ -687,33 +689,39 @@
         searchInput.focus();
       }
     });
-    // NEW: Placeholder for filter and export functionality
+    
+    // Placeholder for filter and export functionality
     document.getElementById("applyFilters").addEventListener("click", () => {
       // ...apply filter logic...
-      alert("Filtros aplicados (lógica a implementar)");
-    });
-    document.getElementById("findCentralNodes").addEventListener("click", () => {
-      // ...centrality analysis logic...
-      alert("Nó central identificado (lógica a implementar)");
-    });
-    document.getElementById("findClusters").addEventListener("click", () => {
-      // ...community detection logic...
-      alert("Agrupamentos detectados (lógica a implementar)");
-    });
-    document.getElementById("exportPNG").addEventListener("click", () => {
-      // ...export PNG logic...
-      alert("Exportar PNG (lógica a implementar)");
-    });
-    document.getElementById("exportJSON").addEventListener("click", () => {
-      // ...export JSON logic...
-      alert("Exportar JSON (lógica a implementar)");
-    });
-    document.getElementById("exportGraphML").addEventListener("click", () => {
-      // ...export GraphML logic...
-      alert("Exportar GraphML (lógica a implementar)");
+      alert("Filters applied (implementation pending)");
     });
     
-    // NEW: Add GitHub Pages deployment info to console
+    document.getElementById("findCentralNodes").addEventListener("click", () => {
+      // ...centrality analysis logic...
+      alert("Central node identified (implementation pending)");
+    });
+    
+    document.getElementById("findClusters").addEventListener("click", () => {
+      // ...community detection logic...
+      alert("Communities detected (implementation pending)");
+    });
+    
+    document.getElementById("exportPNG").addEventListener("click", () => {
+      // ...export PNG logic...
+      alert("Exporting PNG (implementation pending)");
+    });
+    
+    document.getElementById("exportJSON").addEventListener("click", () => {
+      // ...export JSON logic...
+      alert("Exporting JSON (implementation pending)");
+    });
+    
+    document.getElementById("exportGraphML").addEventListener("click", () => {
+      // ...export GraphML logic...
+      alert("Exporting GraphML (implementation pending)");
+    });
+    
+    // Add GitHub Pages deployment info to console
     console.log('Graph Vision Pro - Running on GitHub Pages: https://wsmontes.github.io/Excel-To-Graph/GraphV5.html');
     
     // Initialize resetViewBtn functionality 
@@ -769,7 +777,7 @@
       });
       
       if (matches.length === 0) {
-        results.innerHTML = "<div class='p-2'>Nenhum resultado encontrado</div>";
+        results.innerHTML = "<div class='p-2'>No results found</div>";
       }
     });
   </script>
